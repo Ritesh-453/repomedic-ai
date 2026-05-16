@@ -7,7 +7,9 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(cors({ origin: 'http://localhost:3000' }));
+app.use(cors({ 
+  origin: ['http://localhost:3000', 'https://repomedic-ai.vercel.app'] 
+}));
 app.use(express.json());
 
 // Routes
