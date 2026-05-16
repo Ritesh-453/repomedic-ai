@@ -17,6 +17,7 @@ app.use('/api/analyze', require('./routes/analyze'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/repo-summary', require('./routes/repoSummary'));
 app.use('/api', require('./routes/bugFix'));
+app.use('/api/pr', require('./routes/pr'));
 
 // Health check
 app.get('/health', (req, res) => res.json({ 
