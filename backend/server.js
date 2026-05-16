@@ -32,3 +32,10 @@ app.listen(PORT, () => {
   console.log(`⚡ AI Engine: Groq llama3-70b`);
   console.log(`🤖 Context Engine: IBM BOB`);
 });
+
+// Keep alive — ping self every 14 minutes
+setInterval(() => {
+  fetch('https://repomedic-ai.onrender.com/health')
+    .then(() => console.log('🟢 Keep-alive ping sent'))
+    .catch(() => console.log('⚠️ Keep-alive ping failed'))
+}, 14 * 60 * 1000);

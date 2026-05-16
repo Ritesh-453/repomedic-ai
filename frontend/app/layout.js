@@ -1,4 +1,11 @@
 import './globals.css'
+import { Poppins } from 'next/font/google'
+
+const poppins = Poppins({ 
+  subsets: ['latin'], 
+  weight: ['400', '700', '800'],
+  variable: '--font-poppins'
+})
 
 export const metadata = {
   title: 'RepoMedic AI — Debug Any Repository',
@@ -8,7 +15,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={poppins.className}>{children}</body>
     </html>
   )
 }
