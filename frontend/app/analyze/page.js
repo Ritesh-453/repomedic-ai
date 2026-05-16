@@ -14,6 +14,11 @@ export default function AnalyzePage() {
   const [fixResult, setFixResult] = useState(null)
   const [fixError, setFixError] = useState('')
 
+  // PR states
+  const [creatingPR, setCreatingPR] = useState(false)
+  const [prResult, setPrResult] = useState(null)
+  const [prError, setPrError] = useState('')
+
   useEffect(() => {
     const stored = localStorage.getItem('repomedic_analysis')
     if (!stored) { router.push('/'); return }
@@ -24,6 +29,7 @@ export default function AnalyzePage() {
     setFixing(true)
     setFixError('')
     setFixResult(null)
+    setPrResult(null)
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bugfix`, {
         method: 'POST',
@@ -41,6 +47,32 @@ export default function AnalyzePage() {
       setFixError(err.message)
     } finally {
       setFixing(false)
+    }
+  }
+
+  const handleCreatePR = async () => {
+    setCreatingPR(true)
+    setPrError('')
+    setPrResult(null)
+    try {
+      const filePath = (data.affectedFiles || [])[0] || 'index.js'
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/pr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repoUrl: data.repoUrl,
+          filePath,
+          fixedCode: fixResult.fixedCode,
+          bugDescription: data.bugDescription || ''
+        })
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'PR creation failed')
+      setPrResult(result)
+    } catch (err) {
+      setPrError(err.message)
+    } finally {
+      setCreatingPR(false)
     }
   }
 
@@ -209,31 +241,16 @@ export default function AnalyzePage() {
               {/* Steps */}
               {(fixResult.steps || []).map((step, i) => (
                 <div key={i} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                  {/* Step Number */}
                   <div style={{
                     minWidth: 32, height: 32, borderRadius: '50%',
                     background: 'var(--accent)', color: '#000',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 13, marginTop: 2
                   }}>{i + 1}</div>
-
                   <div style={{ flex: 1 }}>
-                    {/* Step Title */}
-                    <div style={{
-                      color: 'var(--text)', fontFamily: 'var(--font-sans)',
-                      fontWeight: 700, fontSize: 14, marginBottom: 6
-                    }}>{step.title}</div>
-
-                    {/* Step Explanation */}
-                    <p style={{
-                      color: 'var(--text2)', fontFamily: 'var(--font-mono)',
-                      fontSize: 13, lineHeight: 1.7, margin: '0 0 10px'
-                    }}>{step.explanation}</p>
-
-                    {/* Step Code if present */}
-                    {step.code && (
-                      <CodeBlock code={step.code} title={`Step ${i + 1} Code`} />
-                    )}
+                    <div style={{ color: 'var(--text)', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{step.title}</div>
+                    <p style={{ color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 13, lineHeight: 1.7, margin: '0 0 10px' }}>{step.explanation}</p>
+                    {step.code && <CodeBlock code={step.code} title={`Step ${i + 1} Code`} />}
                   </div>
                 </div>
               ))}
@@ -241,17 +258,75 @@ export default function AnalyzePage() {
               {/* Final Fixed Code */}
               {fixResult.fixedCode && (
                 <div>
-                  <div style={{
-                    fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)',
-                    letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12
-                  }}>✅ Final Fixed Code</div>
+                  <div style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>✅ Final Fixed Code</div>
                   <CodeBlock code={fixResult.fixedCode} title="Complete Fix" />
                 </div>
               )}
 
+              {/* ─── CREATE PR SECTION ─── */}
+              <div style={{
+                background: 'var(--bg)', border: '1px solid var(--border)',
+                borderRadius: 12, padding: 20, marginTop: 8
+              }}>
+                <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+                  🚀 Push Fix to GitHub
+                </div>
+                <p style={{ color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 12, marginBottom: 16, lineHeight: 1.6 }}>
+                  Automatically create a Pull Request on <strong style={{ color: 'var(--text)' }}>{data.repoUrl?.replace('https://github.com/', '')}</strong> with this fix applied.
+                </p>
+
+                {/* PR Success */}
+                {prResult ? (
+                  <div style={{
+                    background: 'rgba(0,255,136,0.08)', border: '1px solid var(--accent)',
+                    borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12
+                  }}>
+                    <div>
+                      <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: 12, marginBottom: 4 }}>✅ Pull Request Created!</div>
+                      <div style={{ color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>Branch: {prResult.branch}</div>
+                    </div>
+                    <a href={prResult.prUrl} target="_blank" rel="noreferrer" style={{
+                      background: 'var(--accent)', color: '#000', borderRadius: 8,
+                      padding: '10px 20px', fontWeight: 700, fontFamily: 'var(--font-sans)',
+                      fontSize: 13, textDecoration: 'none', display: 'inline-block'
+                    }}>View PR on GitHub →</a>
+                  </div>
+                ) : (
+                  <>
+                    {prError && (
+                      <div style={{
+                        background: 'rgba(255,77,77,0.1)', border: '1px solid rgba(255,77,77,0.3)',
+                        borderRadius: 8, padding: '10px 14px', color: 'var(--red)',
+                        fontFamily: 'var(--font-mono)', fontSize: 13, marginBottom: 12
+                      }}>⚠ {prError}</div>
+                    )}
+                    <button
+                      onClick={handleCreatePR}
+                      disabled={creatingPR}
+                      style={{
+                        background: creatingPR ? 'var(--bg3)' : '#000',
+                        color: creatingPR ? 'var(--text2)' : '#fff',
+                        border: '1px solid var(--border)', borderRadius: 10,
+                        padding: '12px 24px', fontWeight: 700,
+                        fontFamily: 'var(--font-sans)', cursor: creatingPR ? 'not-allowed' : 'pointer',
+                        fontSize: 14, display: 'flex', alignItems: 'center', gap: 8,
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {creatingPR ? (
+                        <>
+                          <span style={{ width: 14, height: 14, border: '2px solid var(--text3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
+                          Creating PR...
+                        </>
+                      ) : '🐙 Create Pull Request on GitHub'}
+                    </button>
+                  </>
+                )}
+              </div>
+
               {/* Re-fix button */}
               <button
-                onClick={() => { setFixResult(null); setFixError('') }}
+                onClick={() => { setFixResult(null); setFixError(''); setPrResult(null); setPrError('') }}
                 style={{
                   background: 'none', border: '1px solid var(--border)',
                   color: 'var(--text3)', borderRadius: 8,
