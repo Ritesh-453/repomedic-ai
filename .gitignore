@@ -1,6 +1,4 @@
-node_modules/
-.env
-.env.local
+.gitignore
 .next/
 dist/
 build/
