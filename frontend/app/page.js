@@ -53,7 +53,7 @@ export default function Home() {
             padding: '6px 16px', borderRadius: 999, fontSize: 12, fontFamily: 'var(--font-mono)',
             letterSpacing: '0.1em', textTransform: 'uppercase'
           }}>
-            ⚡ Powered by IBM BOB + Groq AI
+            ⚡ Powered by xAI Grok
           </span>
         </div>
 

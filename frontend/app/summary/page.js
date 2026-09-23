@@ -34,7 +34,7 @@ export default function SummaryPage() {
       <div style={{ maxWidth: 800, margin: '0 auto', padding: '90px 24px 60px' }}>
         <h1 className="fade-up" style={{ fontFamily: 'var(--font-sans)', fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Repository Summary</h1>
         <p className="fade-up-1" style={{ color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 13, marginBottom: 32 }}>
-          IBM BOB analyzes your repository and generates a full architecture overview.
+          xAI Grok analyzes your repository and generates a full architecture overview.
         </p>
 
         <form onSubmit={handleSummary} className="fade-up-2" style={{
@@ -69,7 +69,7 @@ export default function SummaryPage() {
               <div style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)', borderRadius: 10, padding: '16px 20px', flex: 2, display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 20 }}>🤖</span>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>IBM BOB Analysis</div>
+                  <div style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>xAI Grok Analysis</div>
                   <div style={{ color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>Repository context generated successfully</div>
                 </div>
               </div>
@@ -87,10 +87,10 @@ export default function SummaryPage() {
               </div>
             )}
 
-            {/* BOB Technical Overview */}
+            {/* Grok Technical Overview */}
             <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 }}>
               <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>
-                🤖 BOB Technical Analysis
+                🤖 Grok Technical Analysis
               </div>
               <pre style={{ color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: 13, lineHeight: 1.8, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                 {summary.summary}

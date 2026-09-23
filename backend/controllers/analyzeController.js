@@ -1,9 +1,9 @@
 const githubService = require('../services/githubService');
 const parserService = require('../services/parserService');
-const groqService = require('../services/groqService');
-const bobService = require('../services/bobService');
+const grokService = require('../services/groqService');
+const repoContextService = require('../services/bobService');
 
-// In-memory store (no MongoDB needed)
+// In-memory store
 const analysisHistory = [];
 
 const analyzeRepo = async (req, res) => {
@@ -11,26 +11,35 @@ const analyzeRepo = async (req, res) => {
     const { repoUrl, bugDescription } = req.body;
 
     if (!repoUrl || !bugDescription) {
-      return res.status(400).json({ error: 'repoUrl and bugDescription are required' });
+      return res.status(400).json({
+        error: 'repoUrl and bugDescription are required'
+      });
     }
 
-    // Step 1: Fetch repo files via GitHub API
+    // Step 1: Fetch repository files
     console.log('📦 Fetching repository...');
     const repoFiles = await githubService.fetchRepoFiles(repoUrl);
 
-    // Step 2: Parse and filter important files
+    // Step 2: Parse repository
     console.log('🔍 Parsing repository structure...');
     const parsedRepo = parserService.parseRepo(repoFiles);
 
-    // Step 3: IBM BOB generates repo context
-    console.log('🤖 IBM BOB analyzing repository context...');
-    const bobContext = bobService.generateRepoContext(parsedRepo, bugDescription);
+    // Step 3: Generate repository context locally
+    console.log('🔎 Preparing repository context...');
+    const repoContext = repoContextService.generateRepoContext(
+      parsedRepo,
+      bugDescription
+    );
 
-    // Step 4: Groq AI performs bug reasoning
-    console.log('⚡ Groq AI analyzing bug...');
-    const analysis = await groqService.analyzeBug(parsedRepo, bobContext, bugDescription);
+    // Step 4: Grok performs AI bug analysis
+    console.log('⚡ Grok AI analyzing bug...');
+    const analysis = await grokService.analyzeBug(
+      parsedRepo,
+      repoContext,
+      bugDescription
+    );
 
-    // Store in memory
+    // Store analysis in memory
     const result = {
       id: Date.now(),
       repoUrl,
@@ -38,18 +47,37 @@ const analyzeRepo = async (req, res) => {
       analysis,
       createdAt: new Date().toISOString()
     };
+
     analysisHistory.push(result);
 
-    res.json({ success: true, ...analysis, id: result.id });
+    res.json({
+      success: true,
+      ...analysis,
+      id: result.id
+    });
 
   } catch (error) {
-    console.error('Analyze error:', error.message);
-    res.status(500).json({ error: error.message });
+    console.error(
+      'Analyze error:',
+      error.response?.data || error.message
+    );
+
+    res.status(500).json({
+      error:
+        error.response?.data?.error?.message ||
+        error.message
+    });
   }
 };
 
 const getHistory = (req, res) => {
-  res.json({ success: true, history: analysisHistory.slice(-10) });
+  res.json({
+    success: true,
+    history: analysisHistory.slice(-10)
+  });
 };
 
-module.exports = { analyzeRepo, getHistory };
+module.exports = {
+  analyzeRepo,
+  getHistory
+};

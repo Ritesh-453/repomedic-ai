@@ -209,7 +209,7 @@ export default function ChatPage() {
                   }}>
                     {msg.role === 'assistant' && (
                       <div style={{ fontSize: 10, color: 'var(--accent)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                        BOB + Groq AI
+                        xAI Grok
                       </div>
                     )}
                     {/* ─── Rendered Markdown for AI, plain text for user ─── */}

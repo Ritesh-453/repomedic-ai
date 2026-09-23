@@ -25,30 +25,50 @@ export default function AnalyzePage() {
     setData(JSON.parse(stored))
   }, [])
 
-  const handleFix = async () => {
-    setFixing(true)
-    setFixError('')
-    setFixResult(null)
-    setPrResult(null)
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bugfix`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileContent: data.improvedCode || data.reasoning || '',
-          bugDescription: data.bugDescription || '',
-          language: 'javascript'
-        })
-      })
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error || 'Fix failed')
-      setFixResult(result)
-    } catch (err) {
-      setFixError(err.message)
-    } finally {
-      setFixing(false)
+const handleFix = async () => {
+  setFixing(true)
+  setFixError('')
+  setFixResult(null)
+  setPrResult(null)
+  try {
+    const affectedFile = (data.affectedFiles || [])[0] || ''
+    const language = affectedFile.endsWith('.py') ? 'python'
+      : affectedFile.endsWith('.ts') ? 'typescript'
+      : affectedFile.endsWith('.js') ? 'javascript'
+      : 'python'
+
+    // Fetch actual file content from GitHub
+    let fileContent = data.improvedCode || data.reasoning || ''
+    if (affectedFile && data.repoUrl) {
+      try {
+        const repoPath = data.repoUrl.replace('https://github.com/', '')
+        const rawUrl = `https://raw.githubusercontent.com/${repoPath}/main/${affectedFile}`
+        const fileRes = await fetch(rawUrl)
+        if (fileRes.ok) {
+          fileContent = await fileRes.text()
+        }
+      } catch (_) {}
     }
+
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bug-fix`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileContent,
+        bugDescription: data.rootCause || data.bugDescription || '',
+        language
+      })
+    })
+    const result = await res.json()
+    console.log('FIX RESULT:', JSON.stringify(result, null, 2))
+    if (!res.ok) throw new Error(result.error || 'Fix failed')
+    setFixResult(result.result || result)
+  } catch (err) {
+    setFixError(err.message)
+  } finally {
+    setFixing(false)
   }
+}
 
   const handleCreatePR = async () => {
     setCreatingPR(true)
@@ -269,59 +289,12 @@ export default function AnalyzePage() {
                 borderRadius: 12, padding: 20, marginTop: 8
               }}>
                 <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
-                  🚀 Push Fix to GitHub
+                  🚀 Apply This Fix
                 </div>
-                <p style={{ color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 12, marginBottom: 16, lineHeight: 1.6 }}>
-                  Automatically create a Pull Request on <strong style={{ color: 'var(--text)' }}>{data.repoUrl?.replace('https://github.com/', '')}</strong> with this fix applied.
+                <p style={{ color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.6, margin: 0 }}>
+                  Copy the fixed code above and apply it manually to <strong style={{ color: 'var(--text)' }}>{data.repoUrl?.replace('https://github.com/', '')}</strong>. 
+                  PR creation is only supported for repos you own.
                 </p>
-
-                {/* PR Success */}
-                {prResult ? (
-                  <div style={{
-                    background: 'rgba(0,255,136,0.08)', border: '1px solid var(--accent)',
-                    borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12
-                  }}>
-                    <div>
-                      <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: 12, marginBottom: 4 }}>✅ Pull Request Created!</div>
-                      <div style={{ color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>Branch: {prResult.branch}</div>
-                    </div>
-                    <a href={prResult.prUrl} target="_blank" rel="noreferrer" style={{
-                      background: 'var(--accent)', color: '#000', borderRadius: 8,
-                      padding: '10px 20px', fontWeight: 700, fontFamily: 'var(--font-sans)',
-                      fontSize: 13, textDecoration: 'none', display: 'inline-block'
-                    }}>View PR on GitHub →</a>
-                  </div>
-                ) : (
-                  <>
-                    {prError && (
-                      <div style={{
-                        background: 'rgba(255,77,77,0.1)', border: '1px solid rgba(255,77,77,0.3)',
-                        borderRadius: 8, padding: '10px 14px', color: 'var(--red)',
-                        fontFamily: 'var(--font-mono)', fontSize: 13, marginBottom: 12
-                      }}>⚠ {prError}</div>
-                    )}
-                    <button
-                      onClick={handleCreatePR}
-                      disabled={creatingPR}
-                      style={{
-                        background: creatingPR ? 'var(--bg3)' : '#000',
-                        color: creatingPR ? 'var(--text2)' : '#fff',
-                        border: '1px solid var(--border)', borderRadius: 10,
-                        padding: '12px 24px', fontWeight: 700,
-                        fontFamily: 'var(--font-sans)', cursor: creatingPR ? 'not-allowed' : 'pointer',
-                        fontSize: 14, display: 'flex', alignItems: 'center', gap: 8,
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      {creatingPR ? (
-                        <>
-                          <span style={{ width: 14, height: 14, border: '2px solid var(--text3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
-                          Creating PR...
-                        </>
-                      ) : '🐙 Create Pull Request on GitHub'}
-                    </button>
-                  </>
-                )}
               </div>
 
               {/* Re-fix button */}

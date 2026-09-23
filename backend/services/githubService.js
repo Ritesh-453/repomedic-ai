@@ -2,17 +2,48 @@ const axios = require('axios');
 
 const GITHUB_API = 'https://api.github.com';
 
+const getHeaders = () => {
+  const headers = {
+    Accept: 'application/vnd.github.v3+json'
+  };
+
+  if (process.env.GITHUB_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  }
+
+  return headers;
+};
+
+const getAuthenticatedHeaders = () => {
+  if (!process.env.GITHUB_TOKEN) {
+    throw new Error('GITHUB_TOKEN is required for GitHub Pull Request operations');
+  }
+
+  return {
+    Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+    Accept: 'application/vnd.github.v3+json'
+  };
+};
+
 const parseRepoUrl = (repoUrl) => {
   const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
   if (!match) throw new Error('Invalid GitHub URL');
-  return { owner: match[1], repo: match[2].replace('.git', '') };
+
+  return {
+    owner: match[1],
+    repo: match[2].replace('.git', '')
+  };
 };
 
 const fetchRepoFiles = async (repoUrl) => {
   const { owner, repo } = parseRepoUrl(repoUrl);
-  const headers = { Authorization: `token ${process.env.GITHUB_TOKEN}` };
+  const headers = getHeaders();
 
-  const repoInfo = await axios.get(`${GITHUB_API}/repos/${owner}/${repo}`, { headers });
+  const repoInfo = await axios.get(
+    `${GITHUB_API}/repos/${owner}/${repo}`,
+    { headers }
+  );
+
   const branch = repoInfo.data.default_branch;
 
   const treeRes = await axios.get(
@@ -21,7 +52,18 @@ const fetchRepoFiles = async (repoUrl) => {
   );
 
   const files = treeRes.data.tree.filter(f => f.type === 'blob');
-  const importantExtensions = ['.js', '.ts', '.py', '.java', '.go', '.json', '.env.example', '.md'];
+
+  const importantExtensions = [
+    '.js',
+    '.ts',
+    '.py',
+    '.java',
+    '.go',
+    '.json',
+    '.env.example',
+    '.md'
+  ];
+
   const importantFiles = files
     .filter(f => importantExtensions.some(ext => f.path.endsWith(ext)))
     .slice(0, 30);
@@ -29,76 +71,139 @@ const fetchRepoFiles = async (repoUrl) => {
   const fileContents = await Promise.all(
     importantFiles.map(async (file) => {
       try {
-        const res = await axios.get(`${GITHUB_API}/repos/${owner}/${repo}/contents/${file.path}`, { headers });
-        const content = Buffer.from(res.data.content, 'base64').toString('utf-8');
-        return { path: file.path, content, sha: res.data.sha };
+        const res = await axios.get(
+          `${GITHUB_API}/repos/${owner}/${repo}/contents/${file.path}`,
+          { headers }
+        );
+
+        const content = Buffer
+          .from(res.data.content, 'base64')
+          .toString('utf-8');
+
+        return {
+          path: file.path,
+          content,
+          sha: res.data.sha
+        };
       } catch {
-        return { path: file.path, content: '', sha: null };
+        return {
+          path: file.path,
+          content: '',
+          sha: null
+        };
       }
     })
   );
 
-  return { owner, repo, branch, files: fileContents };
+  return {
+    owner,
+    repo,
+    branch,
+    files: fileContents
+  };
 };
 
-const createFixPR = async (repoUrl, filePath, fixedCode, bugDescription) => {
+const createFixPR = async (
+  repoUrl,
+  filePath,
+  fixedCode,
+  bugDescription
+) => {
   const { owner, repo } = parseRepoUrl(repoUrl);
-  const headers = {
-    Authorization: `token ${process.env.GITHUB_TOKEN}`,
-    Accept: 'application/vnd.github.v3+json'
-  };
+  const headers = getAuthenticatedHeaders();
 
-  // Step 1: Get YOUR bot account username
-  const botUser = await axios.get(`${GITHUB_API}/user`, { headers });
+  // Step 1: Get authenticated GitHub username
+  const botUser = await axios.get(
+    `${GITHUB_API}/user`,
+    { headers }
+  );
+
   const botUsername = botUser.data.login;
 
-  // Step 2: Fork the repo into YOUR account (idempotent — safe to call again)
-  await axios.post(`${GITHUB_API}/repos/${owner}/${repo}/forks`, {}, { headers });
+  // Step 2: Fork the repository
+  await axios.post(
+    `${GITHUB_API}/repos/${owner}/${repo}/forks`,
+    {},
+    { headers }
+  );
 
-  // Step 3: Wait for fork to be ready (GitHub needs a few seconds)
+  // Step 3: Wait for fork to be ready
   await new Promise(resolve => setTimeout(resolve, 5000));
 
-  // Step 4: Get default branch from ORIGINAL repo
-  const repoInfo = await axios.get(`${GITHUB_API}/repos/${owner}/${repo}`, { headers });
+  // Step 4: Get default branch from original repository
+  const repoInfo = await axios.get(
+    `${GITHUB_API}/repos/${owner}/${repo}`,
+    { headers }
+  );
+
   const baseBranch = repoInfo.data.default_branch;
 
-  // Step 5: Get latest SHA from YOUR FORK
+  // Step 5: Get latest SHA from fork
   const forkBranchRes = await axios.get(
     `${GITHUB_API}/repos/${botUsername}/${repo}/git/ref/heads/${baseBranch}`,
     { headers }
   );
+
   const baseSha = forkBranchRes.data.object.sha;
 
-  // Step 6: Create new branch on YOUR FORK
+  // Step 6: Create new branch on fork
   const newBranch = `repomedic-fix-${Date.now()}`;
-  await axios.post(`${GITHUB_API}/repos/${botUsername}/${repo}/git/refs`, {
-    ref: `refs/heads/${newBranch}`,
-    sha: baseSha
-  }, { headers });
 
-  // Step 7: Get current file SHA from YOUR FORK
+  await axios.post(
+    `${GITHUB_API}/repos/${botUsername}/${repo}/git/refs`,
+    {
+      ref: `refs/heads/${newBranch}`,
+      sha: baseSha
+    },
+    { headers }
+  );
+
+  // Step 7: Get current file SHA from fork
   const fileRes = await axios.get(
     `${GITHUB_API}/repos/${botUsername}/${repo}/contents/${filePath}`,
-    { headers, params: { ref: baseBranch } }
+    {
+      headers,
+      params: { ref: baseBranch }
+    }
   );
+
   const fileSha = fileRes.data.sha;
 
-  // Step 8: Commit fixed code to YOUR FORK's new branch
-  const encodedContent = Buffer.from(fixedCode).toString('base64');
-  await axios.put(`${GITHUB_API}/repos/${botUsername}/${repo}/contents/${filePath}`, {
-    message: `🔧 RepoMedic Fix: ${bugDescription.slice(0, 70)}`,
-    content: encodedContent,
-    sha: fileSha,
-    branch: newBranch
-  }, { headers });
+  // Step 8: Commit fixed code
+  const encodedContent = Buffer
+    .from(fixedCode)
+    .toString('base64');
 
-  // Step 9: Open PR from YOUR FORK → ORIGINAL REPO
-  const prRes = await axios.post(`${GITHUB_API}/repos/${owner}/${repo}/pulls`, {
-    title: `🔧 RepoMedic: Fix - ${bugDescription.slice(0, 60)}`,
-    body: `## 🤖 RepoMedic AI Fix\n\n**Bug Described:**\n${bugDescription}\n\n**Fix Applied to:** \`${filePath}\`\n\n> This PR was automatically generated by [RepoMedic.ai](https://repomedic-ai.vercel.app) using IBM BOB + Groq AI.`,
-    head: `${botUsername}:${newBranch}`,  // ← KEY FIX: fork:branch syntax
-    base: baseBranch
-  }, { headers });
+  await axios.put(
+    `${GITHUB_API}/repos/${botUsername}/${repo}/contents/${filePath}`,
+    {
+      message: `🔧 RepoMedic Fix: ${bugDescription.slice(0, 70)}`,
+      content: encodedContent,
+      sha: fileSha,
+      branch: newBranch
+    },
+    { headers }
+  );
+
+  // Step 9: Create Pull Request
+  const prRes = await axios.post(
+    `${GITHUB_API}/repos/${owner}/${repo}/pulls`,
+    {
+      title: `🔧 RepoMedic: Fix - ${bugDescription.slice(0, 60)}`,
+      body: `## 🤖 RepoMedic AI Fix
+
+**Bug Described:**
+${bugDescription}
+
+**Fix Applied to:**
+\`${filePath}\`
+
+> This PR was automatically generated by RepoMedic.ai using xAI Grok.`,
+      head: `${botUsername}:${newBranch}`,
+      base: baseBranch
+    },
+    { headers }
+  );
 
   return {
     prUrl: prRes.data.html_url,
@@ -108,4 +213,8 @@ const createFixPR = async (repoUrl, filePath, fixedCode, bugDescription) => {
   };
 };
 
-module.exports = { fetchRepoFiles, parseRepoUrl, createFixPR };
+module.exports = {
+  fetchRepoFiles,
+  parseRepoUrl,
+  createFixPR
+};
