@@ -70,6 +70,8 @@ const getHistory = (req, res) => {
     success: true,
     history: analysisHistory.slice(-10)
   });
+  console.log('📊 ANALYSIS TYPE:', typeof analysis);
+  console.log('📊 ANALYSIS KEYS:', Object.keys(analysis || {}));
 };
 
 module.exports = {
