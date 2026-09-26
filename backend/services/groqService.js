@@ -135,27 +135,6 @@ Respond with ONLY this JSON, no markdown, no code fences, nothing else:
 {"summary":"...","rootCause":"...","affectedFiles":["..."],"reasoning":"...","fix":"...","improvedCode":"...","confidence":0}
 `;
 
-  const responseFormat = {
-    type: 'json_schema',
-    json_schema: {
-      name: 'bug_analysis',
-      strict: true,
-      schema: {
-        type: 'object',
-        properties: {
-          summary: { type: 'string' },
-          rootCause: { type: 'string' },
-          affectedFiles: { type: 'array', items: { type: 'string' } },
-          reasoning: { type: 'string' },
-          fix: { type: 'string' },
-          improvedCode: { type: 'string' },
-          confidence: { type: 'number' }
-        },
-        required: ['summary', 'rootCause', 'affectedFiles', 'reasoning', 'fix', 'improvedCode', 'confidence'],
-        additionalProperties: false
-      }
-    }
-  };
 
   const text = await callOpenRouter(
     [
@@ -170,7 +149,6 @@ Respond with ONLY this JSON, no markdown, no code fences, nothing else:
     ],
     4000,
     0.2,
-    responseFormat  // ← was missing before; this is the primary fix
   );
 
   try {
@@ -310,40 +288,11 @@ IMPORTANT RULES:
 6. If the reported bug cannot be confirmed from the code, say so.
 7. Never return a partial file as fixedCode.
 
-Return:
-- 2 to 4 precise fix steps
-- why each change is required
-- the complete corrected file
+Respond with ONLY this JSON, no markdown, no code fences, nothing else:
+{"steps":[{"title":"...","explanation":"...","code":"..."},{"title":"...","explanation":"...","code":"..."}],"fixedCode":"complete corrected file here"}
 `;
 
-  const responseFormat = {
-    type: 'json_schema',
-    json_schema: {
-      name: 'bug_fix',
-      strict: true,
-      schema: {
-        type: 'object',
-        properties: {
-          steps: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                title: { type: 'string' },
-                explanation: { type: 'string' },
-                code: { type: 'string' }
-              },
-              required: ['title', 'explanation', 'code'],
-              additionalProperties: false
-            }
-          },
-          fixedCode: { type: 'string' }
-        },
-        required: ['steps', 'fixedCode'],
-        additionalProperties: false
-      }
-    }
-  };
+  
 
   const text = await callOpenRouter(
     [
@@ -358,7 +307,6 @@ Return:
     ],
     6000,
     0.2,
-    responseFormat
   );
 
   try {
