@@ -150,6 +150,7 @@ Respond with ONLY this JSON, no markdown, no code fences, nothing else:
     4000,
     0.2,
   );
+  console.log('🔍 RAW RESPONSE:', JSON.stringify(text?.slice(0, 500)));
 
   try {
     return JSON.parse(text);
