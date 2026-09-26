@@ -153,7 +153,7 @@ Respond with ONLY this JSON, no markdown, no code fences, nothing else:
   console.log('🔍 RAW RESPONSE:', JSON.stringify(text?.slice(0, 500)));
 
   try {
-    return JSON.parse(text);
+    return JSON.parse(text.trim());
   } catch {
     // Fallback: try to extract JSON block from response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -311,7 +311,7 @@ Respond with ONLY this JSON, no markdown, no code fences, nothing else:
   );
 
   try {
-    return JSON.parse(text);
+    return JSON.parse(text.trim());
   } catch {
     // Try to extract JSON block
     const jsonMatch = text.match(/\{[\s\S]*\}/);
