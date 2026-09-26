@@ -205,17 +205,21 @@ do NOT fabricate an answer. Explain what information is missing.
     0.2,
   );
 
-  try {
+try {
     return JSON.parse(text);
   } catch {
+    const extract = (key) => {
+      const match = text.match(new RegExp(`${key}[:\*\s]+([^\n\-]+)`, 'i'));
+      return match ? match[1].trim() : '';
+    };
     return {
       summary: text,
-      rootCause: 'Unable to parse structured AI response.',
-      affectedFiles: [],
-      reasoning: '',
-      fix: '',
-      improvedCode: '',
-      confidence: 0
+      rootCause: extract('rootCause'),
+      affectedFiles: extract('affectedFiles') ? [extract('affectedFiles')] : [],
+      reasoning: extract('reasoning'),
+      fix: extract('fix'),
+      improvedCode: extract('improvedCode'),
+      confidence: parseInt(extract('confidence')) || 0
     };
   }
 };
