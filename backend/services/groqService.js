@@ -207,21 +207,35 @@ do NOT fabricate an answer. Explain what information is missing.
 
 try {
     return JSON.parse(text);
-  } catch {
-    const extract = (key) => {
-      const match = text.match(new RegExp(`${key}[:\*\s]+([^\n\-]+)`, 'i'));
-      return match ? match[1].trim() : '';
-    };
-    return {
-      summary: text,
-      rootCause: extract('rootCause'),
-      affectedFiles: extract('affectedFiles') ? [extract('affectedFiles')] : [],
-      reasoning: extract('reasoning'),
-      fix: extract('fix'),
-      improvedCode: extract('improvedCode'),
-      confidence: parseInt(extract('confidence')) || 0
-    };
-  }
+} catch {
+  // Parse plain text response
+  const getSection = (key) => {
+    const patterns = [
+      new RegExp(`\\*\\*${key}\\*\\*[:\\s]+([^*]+?)(?=\\*\\*|$)`, 'is'),
+      new RegExp(`${key}[:\\s]+([^\\n]+)`, 'i')
+    ];
+    for (const p of patterns) {
+      const m = text.match(p);
+      if (m) return m[1].trim();
+    }
+    return '';
+  };
+
+  const filesRaw = getSection('affectedFiles');
+  const files = filesRaw
+    ? filesRaw.split(/[,\n]/).map(f => f.replace(/[-*`]/g, '').trim()).filter(Boolean)
+    : [];
+
+  return {
+    summary: text,
+    rootCause: getSection('rootCause'),
+    affectedFiles: files,
+    reasoning: getSection('reasoning'),
+    fix: getSection('fix'),
+    improvedCode: getSection('improvedCode'),
+    confidence: parseInt(getSection('confidence')) || 0
+  };
+}
 };
 
 
