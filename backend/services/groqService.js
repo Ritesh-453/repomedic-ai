@@ -1,13 +1,11 @@
 const axios = require('axios');
 
-const OPENROUTER_API_URL =
-  'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
-const OPENROUTER_MODEL =
-  process.env.OPENROUTER_MODEL || 'openrouter/free';
-
-const OPENROUTER_API_KEY =
-  process.env.OPENROUTER_API_KEY;
+// Safe char budget for small free models (~8k context)
+const MAX_TOTAL_CHARS = 20000;
 
 
 // =====================================================
@@ -21,9 +19,7 @@ const callOpenRouter = async (
   responseFormat = null
 ) => {
   if (!OPENROUTER_API_KEY) {
-    throw new Error(
-      'OPENROUTER_API_KEY is not configured in .env'
-    );
+    throw new Error('OPENROUTER_API_KEY is not configured in .env');
   }
 
   const body = {
@@ -44,7 +40,7 @@ const callOpenRouter = async (
       headers: {
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'http://localhost:3000',
+        'HTTP-Referer': 'https://repomedic.vercel.app',
         'X-Title': 'RepoMedic'
       }
     }
@@ -61,30 +57,29 @@ const callOpenRouter = async (
 const analyzeBug = async (
   parsedRepo,
   repoContext,
-  bugDescription
+  bugDescription,
+  relevantFiles   // ranked files passed in from analyzeController
 ) => {
 
-  /*
-   * Give the AI substantially more source code.
-   *
-   * We deliberately avoid README/markdown files here.
-   * Each file gets up to 12,000 characters.
-   */
-  const sourceFiles = parsedRepo.files
-    .filter(file =>
-      !file.path.toLowerCase().endsWith('.md') &&
-      !file.path.toLowerCase().includes('readme')
-    )
-    .slice(0, 12);
+  // Use ranked relevant files; fall back to first 8 if not provided
+  const files = (relevantFiles && relevantFiles.length)
+    ? relevantFiles
+    : parsedRepo.files
+        .filter(f =>
+          !f.path.toLowerCase().endsWith('.md') &&
+          !f.path.toLowerCase().includes('readme')
+        )
+        .slice(0, 8);
 
-  const filesSummary = sourceFiles
-    .map(file => {
-      return `
+  // Distribute char budget evenly across files
+  const perFileBudget = Math.floor(MAX_TOTAL_CHARS / Math.max(files.length, 1));
+
+  const filesSummary = files
+    .map(file => `
 ===== FILE: ${file.path} =====
-${file.content.slice(0, 12000)}
+${file.content.slice(0, perFileBudget)}
 ===== END FILE =====
-`;
-    })
+`)
     .join('\n');
 
   const prompt = `
@@ -150,40 +145,15 @@ do NOT fabricate an answer. Explain what information is missing.
       schema: {
         type: 'object',
         properties: {
-          summary: {
-            type: 'string'
-          },
-          rootCause: {
-            type: 'string'
-          },
-          affectedFiles: {
-            type: 'array',
-            items: {
-              type: 'string'
-            }
-          },
-          reasoning: {
-            type: 'string'
-          },
-          fix: {
-            type: 'string'
-          },
-          improvedCode: {
-            type: 'string'
-          },
-          confidence: {
-            type: 'number'
-          }
+          summary: { type: 'string' },
+          rootCause: { type: 'string' },
+          affectedFiles: { type: 'array', items: { type: 'string' } },
+          reasoning: { type: 'string' },
+          fix: { type: 'string' },
+          improvedCode: { type: 'string' },
+          confidence: { type: 'number' }
         },
-        required: [
-          'summary',
-          'rootCause',
-          'affectedFiles',
-          'reasoning',
-          'fix',
-          'improvedCode',
-          'confidence'
-        ],
+        required: ['summary', 'rootCause', 'affectedFiles', 'reasoning', 'fix', 'improvedCode', 'confidence'],
         additionalProperties: false
       }
     }
@@ -193,8 +163,7 @@ do NOT fabricate an answer. Explain what information is missing.
     [
       {
         role: 'system',
-        content:
-          'You are a precise software debugging expert. Never invent repository code.'
+        content: 'You are a precise software debugging expert. Never invent repository code. Always respond with valid JSON matching the required schema.'
       },
       {
         role: 'user',
@@ -203,40 +172,49 @@ do NOT fabricate an answer. Explain what information is missing.
     ],
     4000,
     0.2,
+    responseFormat  // ← was missing before; this is the primary fix
   );
 
-try {
+  try {
     return JSON.parse(text);
-} catch {
-  // Parse plain text response
-const getSection = (key) => {
-  const patterns = [
-    new RegExp(`\\*\\*${key}\\*\\*[:\\s]+([^*]+?)(?=\\*\\*|##|$)`, 'is'),
-    new RegExp(`##\\s*${key}[:\\s]+([^#]+?)(?=##|$)`, 'is'),
-    new RegExp(`${key}[:\\s]+([^\\n]+)`, 'i')
-  ];
-  for (const p of patterns) {
-    const m = text.match(p);
-    if (m) return m[1].trim();
+  } catch {
+    // Fallback: try to extract JSON block from response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch {}
+    }
+
+    // Last resort: regex scrape
+    const getSection = (key) => {
+      const patterns = [
+        new RegExp(`\\*\\*${key}\\*\\*[:\\s]+([^*]+?)(?=\\*\\*|##|$)`, 'is'),
+        new RegExp(`##\\s*${key}[:\\s]+([^#]+?)(?=##|$)`, 'is'),
+        new RegExp(`${key}[:\\s]+([^\\n]+)`, 'i')
+      ];
+      for (const p of patterns) {
+        const m = text.match(p);
+        if (m) return m[1].trim();
+      }
+      return '';
+    };
+
+    const filesRaw = getSection('affectedFiles');
+    const affectedFiles = filesRaw
+      ? filesRaw.split(/[,\n]/).map(f => f.replace(/[-*`]/g, '').trim()).filter(Boolean)
+      : [];
+
+    return {
+      summary: text,
+      rootCause: getSection('rootCause'),
+      affectedFiles,
+      reasoning: getSection('reasoning'),
+      fix: getSection('fix'),
+      improvedCode: getSection('improvedCode'),
+      confidence: parseInt(getSection('confidence')) || 0
+    };
   }
-  return '';
-};
-
-  const filesRaw = getSection('affectedFiles');
-  const files = filesRaw
-    ? filesRaw.split(/[,\n]/).map(f => f.replace(/[-*`]/g, '').trim()).filter(Boolean)
-    : [];
-
-  return {
-    summary: text,
-    rootCause: getSection('rootCause'),
-    affectedFiles: files,
-    reasoning: getSection('reasoning'),
-    fix: getSection('fix'),
-    improvedCode: getSection('improvedCode'),
-    confidence: parseInt(getSection('confidence')) || 0
-  };
-}
 };
 
 
@@ -258,10 +236,12 @@ const chatWithRepo = async (
     )
     .slice(0, 10);
 
+  const perFileBudget = Math.floor(MAX_TOTAL_CHARS / Math.max(sourceFiles.length, 1));
+
   const filesSummary = sourceFiles
     .map(file => `
 ===== ${file.path} =====
-${file.content.slice(0, 8000)}
+${file.content.slice(0, perFileBudget)}
 ===== END =====
 `)
     .join('\n');
@@ -291,11 +271,7 @@ ${question}
     }
   ];
 
-  return await callOpenRouter(
-    messages,
-    2000,
-    0.4
-  );
+  return await callOpenRouter(messages, 2000, 0.4);
 };
 
 
@@ -309,6 +285,9 @@ const generateFix = async (
   language = 'javascript'
 ) => {
 
+  // Truncate large files to stay within model context
+  const truncatedContent = fileContent.slice(0, 12000);
+
   const prompt = `
 You are RepoMedic's code-fixing engine.
 
@@ -321,7 +300,7 @@ Bug:
 ${bugDescription}
 
 Complete source file:
-${fileContent}
+${truncatedContent}
 
 IMPORTANT RULES:
 
@@ -352,32 +331,17 @@ Return:
             items: {
               type: 'object',
               properties: {
-                title: {
-                  type: 'string'
-                },
-                explanation: {
-                  type: 'string'
-                },
-                code: {
-                  type: 'string'
-                }
+                title: { type: 'string' },
+                explanation: { type: 'string' },
+                code: { type: 'string' }
               },
-              required: [
-                'title',
-                'explanation',
-                'code'
-              ],
+              required: ['title', 'explanation', 'code'],
               additionalProperties: false
             }
           },
-          fixedCode: {
-            type: 'string'
-          }
+          fixedCode: { type: 'string' }
         },
-        required: [
-          'steps',
-          'fixedCode'
-        ],
+        required: ['steps', 'fixedCode'],
         additionalProperties: false
       }
     }
@@ -387,8 +351,7 @@ Return:
     [
       {
         role: 'system',
-        content:
-          'You are an expert software engineer. Return precise, minimal, production-safe fixes.'
+        content: 'You are an expert software engineer. Return precise, minimal, production-safe fixes. Always respond with valid JSON matching the required schema.'
       },
       {
         role: 'user',
@@ -403,6 +366,14 @@ Return:
   try {
     return JSON.parse(text);
   } catch {
+    // Try to extract JSON block
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch {}
+    }
+
     return {
       steps: [
         {
@@ -421,11 +392,7 @@ Return:
 // REPOSITORY EXPLANATION
 // =====================================================
 
-const explainRepo = async (
-  parsedRepo,
-  repoContext
-) => {
-
+const explainRepo = async (parsedRepo, repoContext) => {
   const readme = parsedRepo.readme || '';
   const structure = parsedRepo.structure || '';
 
@@ -457,12 +424,7 @@ Do not include source code.
 
   return (
     await callOpenRouter(
-      [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
+      [{ role: 'user', content: prompt }],
       800,
       0.5
     )

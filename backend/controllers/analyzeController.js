@@ -1,3 +1,4 @@
+const { generateRepoContext, getRelevantFiles } = require('../services/bobService');
 const githubService = require('../services/githubService');
 const parserService = require('../services/parserService');
 const grokService = require('../services/groqService');
@@ -16,28 +17,22 @@ const analyzeRepo = async (req, res) => {
       });
     }
 
-    // Step 1: Fetch repository files
-    console.log('📦 Fetching repository...');
-    const repoFiles = await githubService.fetchRepoFiles(repoUrl);
+   // Step 1: Fetch repository files
+console.log('📦 Fetching repository...');
+const repoFiles = await githubService.fetchRepoFiles(repoUrl);
 
-    // Step 2: Parse repository
-    console.log('🔍 Parsing repository structure...');
-    const parsedRepo = parserService.parseRepo(repoFiles);
+// Step 2: Parse repository
+console.log('🔍 Parsing repository structure...');
+const parsedRepo = parserService.parseRepo(repoFiles);
 
-    // Step 3: Generate repository context locally
-    console.log('🔎 Preparing repository context...');
-    const repoContext = repoContextService.generateRepoContext(
-      parsedRepo,
-      bugDescription
-    );
+// Step 3: Generate repository context locally
+console.log('🔎 Preparing repository context...');
+const repoContext = repoContextService.generateRepoContext(parsedRepo, bugDescription);
 
-    // Step 4: Grok performs AI bug analysis
-    console.log('⚡ Grok AI analyzing bug...');
-    const analysis = await grokService.analyzeBug(
-      parsedRepo,
-      repoContext,
-      bugDescription
-    );
+// Step 4: Grok performs AI bug analysis
+console.log('⚡ Grok AI analyzing bug...');
+const relevantFiles = repoContextService.getRelevantFiles(parsedRepo, bugDescription, 8);
+const analysis = await grokService.analyzeBug(parsedRepo, repoContext, bugDescription, relevantFiles);
 
     // Store analysis in memory
     const result = {
