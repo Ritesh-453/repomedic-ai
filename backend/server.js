@@ -27,8 +27,8 @@ app.get('/', (req, res) => {
   res.json({
     success: true,
     message: 'RepoMedic API is running',
-    ai: 'xAI Grok',
-    model: process.env.GROK_MODEL || 'grok-4.7'
+    ai: 'OpenRouter',
+    model: process.env.OPENROUTER_MODEL || 'openrouter/free'
   });
 });
 
@@ -55,10 +55,8 @@ app.listen(PORT, () => {
   console.log('       RepoMedic API Server');
   console.log('=================================');
   console.log(`🚀 Server: http://localhost:${PORT}`);
-  console.log(`⚡ AI Engine: xAI Grok`);
-  console.log(
-    `🤖 Model: ${process.env.GROK_MODEL || 'grok-4.7'}`
-  );
+  console.log(`⚡ AI Engine: OpenRouter`);
+  console.log(`🤖 Model: ${process.env.OPENROUTER_MODEL || 'openrouter/free'}`);
   console.log('=================================');
   console.log('');
 });
