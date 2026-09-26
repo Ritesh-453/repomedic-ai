@@ -314,6 +314,8 @@ Respond with ONLY this JSON, no markdown, no code fences, nothing else:
   } catch {
     // Try to extract JSON block
     const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const cleaned = jsonMatch ? jsonMatch[0].replace(/\\n/g, '\n') : null;
+    return JSON.parse(cleaned);
     if (jsonMatch) {
       try {
         return JSON.parse(jsonMatch[0]);
