@@ -203,7 +203,6 @@ do NOT fabricate an answer. Explain what information is missing.
     ],
     4000,
     0.2,
-    responseFormat
   );
 
   try {
