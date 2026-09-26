@@ -38,17 +38,20 @@ const handleFix = async () => {
       : 'python'
 
     // Fetch actual file content from GitHub
-    let fileContent = data.improvedCode || data.reasoning || ''
-    if (affectedFile && data.repoUrl) {
-      try {
-        const repoPath = data.repoUrl.replace('https://github.com/', '')
-        const rawUrl = `https://raw.githubusercontent.com/${repoPath}/main/${affectedFile}`
-        const fileRes = await fetch(rawUrl)
-        if (fileRes.ok) {
-          fileContent = await fileRes.text()
-        }
-      } catch (_) {}
+    let fileContent = ''
+if (affectedFile && data.repoUrl) {
+  try {
+    const repoPath = data.repoUrl.replace('https://github.com/', '')
+    // try main, then master
+    for (const branch of ['main', 'master']) {
+      const rawUrl = `https://raw.githubusercontent.com/${repoPath}/${branch}/${affectedFile}`
+      const fileRes = await fetch(rawUrl)
+      if (fileRes.ok) { fileContent = await fileRes.text(); break }
     }
+  } catch (_) {}
+}
+// fallback only if fetch completely failed
+if (!fileContent) fileContent = data.improvedCode || ''
 
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bug-fix`, {
       method: 'POST',
