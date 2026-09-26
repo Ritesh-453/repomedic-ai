@@ -152,16 +152,22 @@ Respond with ONLY this JSON, no markdown, no code fences, nothing else:
   );
   console.log('🔍 RAW RESPONSE:', JSON.stringify(text?.slice(0, 500)));
 
-  try {
-    return JSON.parse(text.trim());
-  } catch {
-    // Fallback: try to extract JSON block from response
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        return JSON.parse(jsonMatch[0]);
-      } catch {}
-    }
+  const cleaned = text
+  .trim()
+  .replace(/^```json\s*/i, '')
+  .replace(/^```\s*/i, '')
+  .replace(/```\s*$/i, '')
+  .trim();
+
+try {
+  return JSON.parse(cleaned);
+} catch {
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch {}
+  }
 
     // Last resort: regex scrape
     const getSection = (key) => {
@@ -183,14 +189,14 @@ Respond with ONLY this JSON, no markdown, no code fences, nothing else:
       : [];
 
     return {
-      summary: text,
-      rootCause: getSection('rootCause'),
-      affectedFiles,
-      reasoning: getSection('reasoning'),
-      fix: getSection('fix'),
-      improvedCode: getSection('improvedCode'),
-      confidence: parseInt(getSection('confidence')) || 0
-    };
+    summary: cleaned,
+    rootCause: '',
+    affectedFiles: [],
+    reasoning: '',
+    fix: '',
+    improvedCode: '',
+    confidence: 0
+  };
   }
 };
 
@@ -311,29 +317,25 @@ Respond with ONLY this JSON, no markdown, no code fences, nothing else:
   );
 
   try {
-    return JSON.parse(text.trim());
-  } catch {
-    // Try to extract JSON block
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const cleaned = jsonMatch ? jsonMatch[0].replace(/\\n/g, '\n') : null;
-    return JSON.parse(cleaned);
-    if (jsonMatch) {
-      try {
-        return JSON.parse(jsonMatch[0]);
-      } catch {}
-    }
-
-    return {
-      steps: [
-        {
-          title: 'Unable to generate structured fix',
-          explanation: text,
-          code: ''
-        }
-      ],
-      fixedCode: fileContent
-    };
+  const cleaned = text
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .trim();
+  return JSON.parse(cleaned);
+} catch {
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch {}
   }
+  return {
+    steps: [{ title: 'Fix', explanation: text, code: '' }],
+    fixedCode: fileContent
+  };
+}
 };
 
 
