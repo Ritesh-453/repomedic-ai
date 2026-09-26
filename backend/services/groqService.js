@@ -16,7 +16,6 @@ const callOpenRouter = async (
   messages,
   maxTokens = 3000,
   temperature = 0.2,
-  responseFormat = null
 ) => {
   if (!OPENROUTER_API_KEY) {
     throw new Error('OPENROUTER_API_KEY is not configured in .env');
@@ -28,10 +27,6 @@ const callOpenRouter = async (
     max_tokens: maxTokens,
     temperature
   };
-
-  if (responseFormat) {
-    body.response_format = responseFormat;
-  }
 
   const response = await axios.post(
     OPENROUTER_API_URL,
@@ -135,6 +130,9 @@ Return:
 
 If you cannot determine the exact cause from the supplied source,
 do NOT fabricate an answer. Explain what information is missing.
+
+Respond with ONLY this JSON, no markdown, no code fences, nothing else:
+{"summary":"...","rootCause":"...","affectedFiles":["..."],"reasoning":"...","fix":"...","improvedCode":"...","confidence":0}
 `;
 
   const responseFormat = {
@@ -162,9 +160,9 @@ do NOT fabricate an answer. Explain what information is missing.
   const text = await callOpenRouter(
     [
       {
-        role: 'system',
-        content: 'You are a precise software debugging expert. Never invent repository code. Always respond with valid JSON matching the required schema.'
-      },
+  role: 'system',
+  content: 'You are a precise software debugging expert. Never invent repository code. You MUST respond with ONLY a valid JSON object, no markdown, no explanation, no code fences. Just raw JSON.'
+},
       {
         role: 'user',
         content: prompt
@@ -350,9 +348,9 @@ Return:
   const text = await callOpenRouter(
     [
       {
-        role: 'system',
-        content: 'You are an expert software engineer. Return precise, minimal, production-safe fixes. Always respond with valid JSON matching the required schema.'
-      },
+  role: 'system', 
+  content: 'You are an expert software engineer. Respond with ONLY a valid JSON object, no markdown, no code fences. Just raw JSON matching: {"steps":[{"title":"...","explanation":"...","code":"..."}],"fixedCode":"..."}'
+},
       {
         role: 'user',
         content: prompt
