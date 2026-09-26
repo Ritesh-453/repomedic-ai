@@ -15,7 +15,10 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: 'https://repomedic-ai.vercel.app'
+  origin: [
+    'https://repomedic-ai.vercel.app',
+    /\.vercel\.app$/
+  ]
 }));
 app.use(express.json({ limit: '10mb' }));
 
