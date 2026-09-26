@@ -209,17 +209,18 @@ try {
     return JSON.parse(text);
 } catch {
   // Parse plain text response
-  const getSection = (key) => {
-    const patterns = [
-      new RegExp(`\\*\\*${key}\\*\\*[:\\s]+([^*]+?)(?=\\*\\*|$)`, 'is'),
-      new RegExp(`${key}[:\\s]+([^\\n]+)`, 'i')
-    ];
-    for (const p of patterns) {
-      const m = text.match(p);
-      if (m) return m[1].trim();
-    }
-    return '';
-  };
+const getSection = (key) => {
+  const patterns = [
+    new RegExp(`\\*\\*${key}\\*\\*[:\\s]+([^*]+?)(?=\\*\\*|##|$)`, 'is'),
+    new RegExp(`##\\s*${key}[:\\s]+([^#]+?)(?=##|$)`, 'is'),
+    new RegExp(`${key}[:\\s]+([^\\n]+)`, 'i')
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) return m[1].trim();
+  }
+  return '';
+};
 
   const filesRaw = getSection('affectedFiles');
   const files = filesRaw
