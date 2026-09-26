@@ -33,6 +33,7 @@ const repoContext = repoContextService.generateRepoContext(parsedRepo, bugDescri
 console.log('⚡ Grok AI analyzing bug...');
 const relevantFiles = repoContextService.getRelevantFiles(parsedRepo, bugDescription, 8);
 const analysis = await grokService.analyzeBug(parsedRepo, repoContext, bugDescription, relevantFiles);
+console.log('🟢 ANALYSIS RESULT:', JSON.stringify(analysis));
 
     // Store analysis in memory
     const result = {
