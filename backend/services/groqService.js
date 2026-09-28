@@ -1,7 +1,6 @@
 const axios = require('axios');
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 // Safe char budget for small free models (~8k context)
@@ -12,36 +11,40 @@ const MAX_TOTAL_CHARS = 20000;
 // OPENROUTER
 // =====================================================
 
-const callOpenRouter = async (
-  messages,
-  maxTokens = 3000,
-  temperature = 0.2,
-) => {
-  if (!OPENROUTER_API_KEY) {
-    throw new Error('OPENROUTER_API_KEY is not configured in .env');
-  }
+const FALLBACK_MODELS = [
+  process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free',
+  'mistralai/mistral-7b-instruct:free',
+  'qwen/qwen3-8b:free',
+  'google/gemma-3-12b-it:free',
+];
 
-  const body = {
-    model: OPENROUTER_MODEL,
-    messages,
-    max_tokens: maxTokens,
-    temperature
-  };
+const callOpenRouter = async (messages, maxTokens = 3000, temperature = 0.2) => {
+  if (!OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY is not configured in .env');
 
-  const response = await axios.post(
-    OPENROUTER_API_URL,
-    body,
-    {
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://repomedic.vercel.app',
-        'X-Title': 'RepoMedic'
-      }
+  let lastError;
+  for (const model of FALLBACK_MODELS) {
+    try {
+      console.log(`🤖 Trying model: ${model}`);
+      const response = await axios.post(
+        OPENROUTER_API_URL,
+        { model, messages, max_tokens: maxTokens, temperature },
+        {
+          headers: {
+            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://repomedic.vercel.app',
+            'X-Title': 'RepoMedic'
+          }
+        }
+      );
+      const content = response.data?.choices?.[0]?.message?.content || '';
+      if (content) return content;
+    } catch (err) {
+      console.warn(`⚠️ Model ${model} failed:`, err.response?.data?.error?.message || err.message);
+      lastError = err;
     }
-  );
-
-  return response.data?.choices?.[0]?.message?.content || '';
+  }
+  throw lastError || new Error('All models failed');
 };
 
 
