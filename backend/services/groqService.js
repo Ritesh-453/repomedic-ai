@@ -269,7 +269,7 @@ const generateFix = async (
 ) => {
 
   // Truncate large files to stay within model context
-  const truncatedContent = fileContent.slice(0, 12000);
+  const truncatedContent = fileContent.slice(0, 20000);
 
   const prompt = `
 You are RepoMedic's code-fixing engine.
@@ -279,24 +279,22 @@ Fix the reported bug in the provided source code.
 Programming language:
 ${language}
 
-Bug:
+Bug to fix:
 ${bugDescription}
 
-Complete source file:
+CRITICAL INSTRUCTIONS:
+1. You MUST apply the fix described in the bug description to the code below.
+2. Return the COMPLETE file with the fix already applied.
+3. Do NOT return the original unchanged code.
+4. Do NOT explain what to do — just DO it in the fixedCode.
+5. steps should describe what you changed and why.
+6. fixedCode must be the full corrected file.
+
+Source file to fix:
 ${truncatedContent}
 
-IMPORTANT RULES:
-
-1. Return a COMPLETE corrected version of the provided file.
-2. Do not remove working functionality.
-3. Do not rewrite unrelated parts.
-4. Preserve the original structure and style.
-5. Explain exactly why the change fixes the bug.
-6. If the reported bug cannot be confirmed from the code, say so.
-7. Never return a partial file as fixedCode.
-
 Respond with ONLY this JSON, no markdown, no code fences, nothing else:
-{"steps":[{"title":"...","explanation":"...","code":"..."},{"title":"...","explanation":"...","code":"..."}],"fixedCode":"complete corrected file here"}
+{"steps":[{"title":"...","explanation":"...","code":"..."}],"fixedCode":"complete corrected file here"}
 `;
 
   
