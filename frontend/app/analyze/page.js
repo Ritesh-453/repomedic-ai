@@ -10,14 +10,14 @@ export default function AnalyzePage() {
   const [data, setData] = useState(null)
 
   // Fix feature states
-  const [fixing, setFixing] = useState(false)
-  const [fixResult, setFixResult] = useState(null)
-  const [fixError, setFixError] = useState('')
+  // const [fixing, setFixing] = useState(false)
+  // const [fixResult, setFixResult] = useState(null)
+  // const [fixError, setFixError] = useState('')
 
   // PR states
-  const [creatingPR, setCreatingPR] = useState(false)
-  const [prResult, setPrResult] = useState(null)
-  const [prError, setPrError] = useState('')
+  // const [creatingPR, setCreatingPR] = useState(false)
+  // const [prResult, setPrResult] = useState(null)
+  // const [prError, setPrError] = useState('')
 
   useEffect(() => {
     const stored = localStorage.getItem('repomedic_analysis')
@@ -195,124 +195,6 @@ if (!fileContent) fileContent = data.improvedCode || ''
           </div>
         )}
 
-        {/* ─── FIX THIS BUG SECTION ─── */}
-        <div className="fade-up-4" style={{
-          marginTop: 32,
-          background: 'var(--bg2)',
-          border: '1px solid var(--accent)',
-          borderRadius: 16,
-          overflow: 'hidden'
-        }}>
-          {/* Section Header */}
-          <div style={{
-            background: 'var(--accent-dim)',
-            padding: '16px 24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 12
-          }}>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
-                🔧 Auto-Fix
-              </div>
-              <p style={{ color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 12, margin: 0 }}>
-                Let AI generate a step-by-step fix with corrected code — right here.
-              </p>
-            </div>
-            {!fixResult && (
-              <button
-                onClick={handleFix}
-                disabled={fixing}
-                style={{
-                  background: fixing ? 'var(--bg3)' : 'var(--accent)',
-                  color: fixing ? 'var(--text2)' : '#000',
-                  border: 'none', borderRadius: 10,
-                  padding: '12px 24px', fontWeight: 700,
-                  fontFamily: 'var(--font-sans)', cursor: fixing ? 'not-allowed' : 'pointer',
-                  fontSize: 14, display: 'flex', alignItems: 'center', gap: 8,
-                  boxShadow: fixing ? 'none' : '0 0 20px var(--accent-glow)',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {fixing ? (
-                  <>
-                    <span style={{ width: 14, height: 14, border: '2px solid var(--text3)', borderTopColor: 'var(--accent)', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
-                    Fixing...
-                  </>
-                ) : '🔧 Fix This Bug'}
-              </button>
-            )}
-          </div>
-
-          {/* Error */}
-          {fixError && (
-            <div style={{ padding: '16px 24px' }}>
-              <div style={{
-                background: 'rgba(255,77,77,0.1)', border: '1px solid rgba(255,77,77,0.3)',
-                borderRadius: 8, padding: '10px 14px', color: 'var(--red)',
-                fontFamily: 'var(--font-mono)', fontSize: 13
-              }}>⚠ {fixError}</div>
-            </div>
-          )}
-
-          {/* Fix Result */}
-          {fixResult && (
-            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-              {/* Steps */}
-              {(fixResult.steps || []).map((step, i) => (
-                <div key={i} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                  <div style={{
-                    minWidth: 32, height: 32, borderRadius: '50%',
-                    background: 'var(--accent)', color: '#000',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 13, marginTop: 2
-                  }}>{i + 1}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: 'var(--text)', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{step.title}</div>
-                    <p style={{ color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 13, lineHeight: 1.7, margin: '0 0 10px' }}>{step.explanation}</p>
-                    {step.code && <CodeBlock code={step.code} title={`Step ${i + 1} Code`} />}
-                  </div>
-                </div>
-              ))}
-
-              {/* Final Fixed Code */}
-              {fixResult.fixedCode && (
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>✅ Final Fixed Code</div>
-                  <CodeBlock code={fixResult.fixedCode} title="Complete Fix" />
-                </div>
-              )}
-
-              {/* ─── CREATE PR SECTION ─── */}
-              <div style={{
-                background: 'var(--bg)', border: '1px solid var(--border)',
-                borderRadius: 12, padding: 20, marginTop: 8
-              }}>
-                <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
-                  🚀 Apply This Fix
-                </div>
-                <p style={{ color: 'var(--text2)', fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.6, margin: 0 }}>
-                  Copy the fixed code above and apply it manually to <strong style={{ color: 'var(--text)' }}>{data.repoUrl?.replace('https://github.com/', '')}</strong>. 
-                  PR creation is only supported for repos you own.
-                </p>
-              </div>
-
-              {/* Re-fix button */}
-              <button
-                onClick={() => { setFixResult(null); setFixError(''); setPrResult(null); setPrError('') }}
-                style={{
-                  background: 'none', border: '1px solid var(--border)',
-                  color: 'var(--text3)', borderRadius: 8,
-                  padding: '8px 16px', fontFamily: 'var(--font-mono)',
-                  fontSize: 12, cursor: 'pointer', alignSelf: 'flex-start'
-                }}
-              >↺ Regenerate Fix</button>
-            </div>
-          )}
-        </div>
 
         {/* Actions */}
         <div className="fade-up-4" style={{ display: 'flex', gap: 12, marginTop: 24, flexWrap: 'wrap' }}>
