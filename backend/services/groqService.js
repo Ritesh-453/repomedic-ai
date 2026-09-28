@@ -14,7 +14,6 @@ const MAX_TOTAL_CHARS = 20000;
 const FALLBACK_MODELS = [
   process.env.OPENROUTER_MODEL || 'qwen/qwen3-8b:free',
   'qwen/qwen3-8b:free',
-  'nvidia/nemotron-3-ultra:free',
 ];
 
 const callOpenRouter = async (messages, maxTokens = 3000, temperature = 0.2) => {
