@@ -12,8 +12,7 @@ const MAX_TOTAL_CHARS = 20000;
 // =====================================================
 
 const FALLBACK_MODELS = [
-  process.env.OPENROUTER_MODEL || 'qwen/qwen3-8b:free',
-  'qwen/qwen3-8b:free',
+  process.env.OPENROUTER_MODEL || 'google/gemma-3-12b-it',
 ];
 
 const callOpenRouter = async (messages, maxTokens = 3000, temperature = 0.2) => {
